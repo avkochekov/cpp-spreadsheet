@@ -9,6 +9,9 @@
 #include <vector>
 
 // Позиция ячейки. Индексация с нуля.
+
+#define MAX_INDEX 16384
+
 struct Position {
     int row = 0;
     int col = 0;
@@ -21,8 +24,8 @@ struct Position {
 
     static Position FromString(std::string_view str);
 
-    static const int MAX_ROWS = 16384;
-    static const int MAX_COLS = 16384;
+    static const int MAX_ROWS = MAX_INDEX;
+    static const int MAX_COLS = MAX_INDEX;
     static const Position NONE;
 };
 
@@ -33,22 +36,58 @@ struct Size {
     bool operator==(Size rhs) const;
 };
 
-// Описывает ошибки, которые могут возникнуть при вычислении формулы.
-class FormulaError {
+class PositionHash{
 public:
-    enum class Category {
+    size_t operator()(const Position& pos) const{
+        return pos.row * MAX_INDEX + pos.col;
+    }
+};
+
+// Описывает ошибки, которые могут возникнуть при вычислении формулы.
+class FormulaError
+{
+public:
+    enum class Category
+    {
         Ref,    // ссылка на ячейку с некорректной позицией
         Value,  // ячейка не может быть трактована как число
-        Div0,  // в результате вычисления возникло деление на ноль
+        Div0,   // в результате вычисления возникло деление на ноль
     };
 
-    FormulaError(Category category);
+    FormulaError(Category category)
+        : category_(category)
+    {};
 
-    Category GetCategory() const;
+    Category GetCategory() const
+    {
+        return category_;
+    }
 
-    bool operator==(FormulaError rhs) const;
+    bool operator==(FormulaError rhs) const
+    {
+        return category_ == rhs.category_;
+    }
 
-    std::string_view ToString() const;
+    std::string_view ToString() const
+    {
+        using namespace std::string_view_literals;
+
+        switch (category_)
+        {
+        case FormulaError::Category::Ref:
+            return { "#REF!"sv };
+            break;
+        case FormulaError::Category::Value:
+            return { "#VALUE!"sv };
+            break;
+        case FormulaError::Category::Div0:
+            return { "#DIV/0!"sv };
+            break;
+        default:
+            return { ""sv };
+            break;
+        }
+    }
 
 private:
     Category category_;
